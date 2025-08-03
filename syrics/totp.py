@@ -1,12 +1,12 @@
 import hashlib
 import hmac
 import math
+import requests
 
 # thanks to https://github.com/glomatico/votify/blob/main/votify/totp.py
 class TOTP:
     def __init__(self) -> None:
-        self.secret = b"46765510475331268151846763111112875241781186186871271119692"
-        self.version = 17
+        self.secret, self.version = self.get_secret_version()
         self.period = 30
         self.digits = 6
 
@@ -26,3 +26,13 @@ class TOTP:
         )
 
         return str(binary % (10**self.digits)).zfill(self.digits)
+    
+    def get_secret_version(self) -> tuple[str, int]:
+        req = requests.get("https://raw.githubusercontent.com/Thereallo1026/spotify-secrets/refs/heads/main/secrets/secrets.json")
+        if req.status_code != 200:
+            raise ValueError("Failed to fetch TOTP secret and version.")
+        data = req.json()[-1]
+        ascii_codes = [ord(c) for c in data['secret']]
+        transformed = [val ^ ((i % 33) + 9) for i, val in enumerate(ascii_codes)]
+        secret_key = "".join(str(num) for num in transformed)
+        return bytes(secret_key, 'utf-8'), data['version']
